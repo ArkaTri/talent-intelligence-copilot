@@ -313,3 +313,27 @@ Uji: 5 bukti asli lolos, evidence palsu (resume_id 99999999) ditolak.
 **Dasar regulasi:** EU AI Act mengklasifikasikan employment screening
 sebagai high-risk; NYC Local Law 144 mewajibkan bias audit tahunan.
 Sistem ini tidak mengklaim compliance — hanya menunjukkan kesadaran.
+
+## Citation verifier — membedakan chunk_index salah dari halusinasi
+
+**Kasus:** evaluator mengutip "Delivered quality service to top tier
+clients within the PWC..." dengan citation [26530575#3].
+
+Pemeriksaan awal (preview 300 karakter) menyimpulkan halusinasi — SALAH.
+Frasa itu ada di chunk #2 pada posisi karakter ke-770, di luar jangkauan
+preview. Model mengutip PERSIS; hanya chunk_index yang keliru.
+
+**Bug di verifier:** fallback "cari di chunk lain resume yang sama" hanya
+jalan kalau chunk_index tidak ditemukan sama sekali. Di jalur evaluator,
+`retrieved` berisi semua chunk resume — jadi #3 ada, verifikasi berhenti
+di situ tanpa mencoba chunk lain.
+
+**Perbaikan:** kalau kutipan tidak cocok di chunk yang disebut, cari di
+seluruh chunk resume sebelum menyatakan gagal. Dua jenis masalah
+dibedakan:
+- chunk_index salah → kutipan valid, atribusi posisi keliru (peringatan)
+- kutipan tidak ada → halusinasi (kegagalan)
+
+**Pelajaran metodologis:** verifikasi berbasis preview terpotong
+menghasilkan kesimpulan yang salah. Periksa dengan `.find()` dan cetak
+posisi, bukan potongan awal.

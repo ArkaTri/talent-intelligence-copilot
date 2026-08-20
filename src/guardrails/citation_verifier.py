@@ -93,25 +93,30 @@ def verify_evidence(
             )
             continue
 
-        source = by_key.get((e.resume_id, e.chunk_index))
-        if source is None:
-            # resume_id benar tapi chunk_index salah. Coba cocokkan ke
-            # chunk lain dari resume yang sama sebelum menyatakan gagal.
-            candidates = [t for (rid, _), t in by_key.items() if rid == e.resume_id]
-            source = " ".join(candidates)
-            if not source:
-                issues.append(f"{e.citation()} chunk tidak ditemukan")
-                continue
-
         # Pecah pada "..." — model kadang menyambung dua bagian teks
         fragments = [f.strip() for f in e.quote.split("...") if f.strip()]
-        for frag in fragments:
-            if not _fragment_found(frag, source):
-                issues.append(
-                    f"{e.citation()} kutipan tidak cocok dengan sumber: "
-                    f"\"{frag[:60]}...\""
-                )
-                break
+
+        # Coba chunk yang disebut dulu
+        primary = by_key.get((e.resume_id, e.chunk_index), "")
+        if all(_fragment_found(f, primary) for f in fragments):
+            continue
+
+        # Chunk_index salah tapi resume benar — cari di seluruh chunk
+        # resume tersebut. Model sering menyebut nomor chunk yang keliru
+        # meski mengutip persis; itu masalah atribusi posisi, bukan
+        # halusinasi, dan tidak boleh diperlakukan sama.
+        whole = " ".join(t for (rid, _), t in by_key.items() if rid == e.resume_id)
+        if all(_fragment_found(f, whole) for f in fragments):
+            issues.append(
+                f"{e.citation()} kutipan benar tapi chunk_index salah "
+                f"(teks ada di resume {e.resume_id}, chunk lain)"
+            )
+            continue
+
+        bad = next(f for f in fragments if not _fragment_found(f, whole))
+        issues.append(
+            f"{e.citation()} kutipan tidak ditemukan di resume: \"{bad[:60]}...\""
+        )
 
     return len(issues) == 0, issues
 
