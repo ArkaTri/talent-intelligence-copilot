@@ -55,3 +55,57 @@ asumsi 4:1.
 
 **Payload index:** category, section_type, resume_id, chunking_method.
 Wajib eksplisit — Qdrant menolak filtering pada field tak ter-index.
+
+## Retrieval Design
+
+**Keputusan:**
+1. Category filter — ada, opsional, tidak otomatis
+2. Section filter — ada, tidak default
+3. Tanpa threshold skor
+4. Dedup per resume_id — default aktif
+5. Fetch 20 → dedup → top 5
+
+**Bukti (notebooks/check_02_retrieval.py, 22.866 chunk):**
+
+*Category filter berguna, tapi bukan karena "meningkatkan relevansi".*
+Tanpa filter, top-5 berisi rata-rata 3,25/5 dari kategori target.
+Query "registered nurse patient care" mengembalikan 3 ADVOCATE dari 10
+hasil — bahasa advokasi dekat secara semantik dengan patient care.
+Filter menegakkan constraint yang tidak bisa dijamin embedding.
+Hanya dipakai saat pengguna menyebut kategori.
+
+*Section filter sering redundan atau merugikan.*
+Embedding sudah merutekan dengan benar tanpa bantuan:
+  "proficient in Excel and SAP"       → skills 10/10
+  "bachelor degree in business admin" → education 10/10
+Dan "managed a team across departments" tersebar ke experience (4) dan
+accomplishments (3) — isi accomplishments sama relevannya. Memfilter ke
+experience membuang hasil valid.
+
+*Threshold skor akan mematikan seluruh domain.*
+  kitchen management : 0.6325 – 0.6965
+  financial audit    : 0.6014 – 0.6328
+  python ML          : 0.3839 – 0.4131
+Hasil TERBAIK query Python (0.41) di bawah hasil TERBURUK query chef
+(0.63), padahal isinya jelas relevan.
+
+*Dedup diperlukan.*
+Tanpa dedup, resume 49777184 mengisi 3 dari 5 slot (chunk #6, #7, #8).
+Untuk screening, recruiter butuh keragaman kandidat.
+
+---
+
+## Label kategori dataset tidak tepercaya
+
+**Temuan:** resume "IT COMPLIANCE AUDITOR — 15 years in Information
+Technology" berlabel APPAREL. Resume tentang "evaluate, or process loan
+applications" berlabel CHEF.
+
+**Konsekuensi:**
+1. Sebagian "kegagalan" retrieval mungkin sebenarnya label salah, bukan
+   pencarian salah.
+2. Golden set TIDAK boleh memakai label kategori sebagai ground truth.
+   Relevansi harus diverifikasi dari isi teks secara manual.
+3. Metrik precision-by-category akan understate performa sistem.
+
+Dicatat di README sebagai keterbatasan dataset.
