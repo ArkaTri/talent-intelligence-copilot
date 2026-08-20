@@ -170,3 +170,44 @@ mengirim beberapa varian istilah.
 **Batasan kedua:** angka hasil selalu kecil (AWS 47 chunk, Kubernetes 2)
 karena dataset didominasi profesi non-teknis. Itu benar, bukan kegagalan
 pencarian — perlu disampaikan agar tidak disalahartikan.
+
+## Komposisi biaya aktual (dari schemas.py)
+
+| Komponen | Model | Biaya | Porsi |
+|---|---|---|---|
+| routing | gpt-4.1-nano | $0.000094 | 4,2% |
+| rerank | gpt-4.1-nano | $0.000388 | 17,5% |
+| answer | gpt-4.1-mini | $0.001740 | 78,3% |
+| **total** | | **$0.002222** | |
+
+**$2,22 per 1.000 query.**
+
+Mengoreksi proyeksi guideline (2% / 8% / 90%). Reranking dua kali lebih
+mahal dari perkiraan karena keputusan memakai chunk penuh, bukan
+truncated — konsekuensi yang bisa dilacak ke keputusan spesifik.
+
+Prioritas ablation tidak berubah: model jawaban (78,3%) lebih berdampak
+daripada payload reranker (17,5%). Tapi jaraknya lebih sempit dari
+perkiraan, jadi truncation tetap layak diuji kalau ada waktu.
+
+## Biaya aktual retrieval agent (3 query uji)
+
+| Query | Total | rerank | answer |
+|---|---|---|---|
+| audit keuangan | $0.001298 | $0.000405 | $0.000893 |
+| banking risk | $0.001149 | $0.000449 | $0.000700 |
+| memimpin tim | $0.001138 | $0.000345 | $0.000793 |
+| **rata-rata** | **$0.001195** | ~35% | ~65% |
+
+**$1,20 per 1.000 query** — setengah dari simulasi schemas.py ($2,22).
+Penyebab: dedup memangkas kandidat sebelum reranking, payload lebih kecil
+dari asumsi 20 chunk penuh.
+
+Komposisi juga bergeser: rerank ~35% (simulasi 17,5%), answer ~65%
+(simulasi 78,3%). Jarak keduanya menyempit — ablation payload reranker
+jadi lebih layak dipertimbangkan.
+
+**Kualitas jawaban:** citation lengkap di semua klaim, perbandingan
+berbasis bukti, angka konkret terekstrak, ketidakpastian dinyatakan
+eksplisit ("tidak disebutkan ukuran pasti tim"). Bahasa Indonesia bersih
+tanpa karakter non-Latin — kontras dengan temuan gpt-5.4-mini di Tahap 5.
