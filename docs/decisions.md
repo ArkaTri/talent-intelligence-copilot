@@ -211,3 +211,34 @@ jadi lebih layak dipertimbangkan.
 berbasis bukti, angka konkret terekstrak, ketidakpastian dinyatakan
 eksplisit ("tidak disebutkan ukuran pasti tim"). Bahasa Indonesia bersih
 tanpa karakter non-Latin — kontras dengan temuan gpt-5.4-mini di Tahap 5.
+
+## Analytics agent — exact matching juga punya mode kegagalan
+
+**Temuan:** `MatchText` Qdrant melakukan tokenisasi. Frasa multi-kata
+pecah jadi kata terpisah dan dicocokkan dengan OR.
+
+Istilah "Project Management Professional" menangkap **310 resume** —
+setiap resume yang menyebut "project management". Setelah frasa >2 kata
+dibuang, PMP turun ke **30 resume**.
+
+Kasus serupa: istilah generik "cloud" menghasilkan 91 resume. Setelah
+diganti istilah spesifik (AWS, Azure, GCP, Kubernetes): **32 resume**,
+konsisten dengan verifikasi awal (AWS+Azure = 29).
+
+**Perbaikan:**
+1. Filter `len(t.split()) <= 2` — buang frasa multi-kata
+2. Prompt planner melarang kata umum: project, management, professional,
+   experience, business, service, development
+3. Field `per_term` dilaporkan agar istilah terlalu generik terlihat,
+   bukan tersembunyi di angka total
+
+**Pelajaran:** setiap metode retrieval punya mode kegagalan sendiri.
+Vector search gagal membedakan bukti dari keyword (→ reranker).
+Label kategori gagal karena kotor (→ text matching).
+Text matching gagal karena tokenisasi (→ filter istilah).
+
+**Penolakan bekerja:** 3 pertanyaan uji ditolak dengan alasan spesifik —
+dua karena bergantung label, satu karena atribut terproteksi.
+
+**Biaya:** ~$0.00007 per query. Pencarian Qdrant gratis, hanya ekstraksi
+istilah yang memakai LLM.

@@ -197,6 +197,11 @@ class AnalyticsResult(BaseModel):
     count: int | None = None
     unit: Literal["resumes", "chunks"] | None = None
     terms_searched: list[str] = Field(default_factory=list)
+    per_term: dict[str, int] = Field(
+        default_factory=dict,
+        description="Jumlah resume per istilah — membantu mendeteksi istilah"
+                    "terlalu generik yang menangkap false positive",
+    )
     breakdown: dict[str, int] = Field(default_factory=dict)
     caveat: str | None = Field(
         default=None,
