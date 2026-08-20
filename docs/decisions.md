@@ -109,3 +109,23 @@ applications" berlabel CHEF.
 3. Metrik precision-by-category akan understate performa sistem.
 
 Dicatat di README sebagai keterbatasan dataset.
+
+## Reranking
+
+**Keputusan:** LLM-based reranking dengan gpt-4.1-nano, chunk penuh
+(bukan truncated), JSON mode wajib.
+
+**Kenapa reranker perlu — bukti:**
+Query "financial audit" mengembalikan skor vektor 0.6014–0.6328.
+Semuanya "cukup mirip", tapi isinya berbeda kualitas. Reranker
+memisahkan bukti pengalaman dari daftar keyword:
+
+  ↑3  "led inventory test work across audit clients"          9.0
+  ↓3  "IT compliance — less focus on financial specifics"     6.0
+
+Konsisten lintas domain. Query "python ML deployment":
+  ↓3  "Lists Python and ML skills but no deployment details"  2.0
+kandidat peringkat 2 versi vektor turun ke 5.
+
+**Dampak terukur:** 6 kandidat dari luar top-5 vektor masuk hasil akhir
+di 3 query uji. Tanpa reranker, kandidat itu tidak terlihat sama sekali.
