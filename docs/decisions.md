@@ -242,3 +242,31 @@ dua karena bergantung label, satu karena atribut terproteksi.
 
 **Biaya:** ~$0.00007 per query. Pencarian Qdrant gratis, hanya ekstraksi
 istilah yang memakai LLM.
+
+## Evaluator agent — structured output
+
+**Keputusan:** output Pydantic tervalidasi, bukan prosa. Memungkinkan UI
+mengurutkan kandidat, memfilter berdasarkan gap, menampilkan berdampingan.
+
+**Yang terbukti bekerja:**
+- Status "missing" konsisten tanpa evidence — model tidak mengarang bukti
+- Kutipan disalin persis; artefak teks asli terbawa ("andadvanced",
+  spasi hilang di sumber) — bukti tidak diparafrase
+- Gap spesifik dan bisa ditindaklanjuti
+- Skor koheren dengan jumlah kriteria terpenuhi
+
+**Biaya:** $0.004686 per evaluasi 3 kandidat — 3,7x retrieval agent
+($0.001278). Penyebabnya output (1.729 token), bukan input. Structured
+output dengan evidence per skill memang verbose. Sepadan dengan
+kualitasnya, tapi perlu diperhitungkan untuk session cap di Streamlit.
+
+**Masalah bahasa:** prompt sistem berbahasa Inggris membuat model
+menghasilkan summary/gaps dalam Inggris meski requirements Indonesia.
+Diperbaiki dengan instruksi deteksi bahasa eksplisit.
+
+**Validasi berlapis:**
+1. JSON mode — output pasti JSON valid
+2. `_parse_evaluation` membuang resume_id yang tidak ada di input
+   (lapisan pertama terhadap halusinasi sumber)
+3. Pydantic — field wajib tidak boleh kosong
+4. Kandidat yang gagal validasi dilewati, tidak membatalkan seluruh hasil
