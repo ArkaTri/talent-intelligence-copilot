@@ -270,3 +270,46 @@ Diperbaiki dengan instruksi deteksi bahasa eksplisit.
    (lapisan pertama terhadap halusinasi sumber)
 3. Pydantic — field wajib tidak boleh kosong
 4. Kandidat yang gagal validasi dilewati, tidak membatalkan seluruh hasil
+
+## Guardrails
+
+**Keputusan:** guardrail sebagai NODE di StateGraph, bukan tool.
+
+**Alasan:** kalau guardrail jadi tool yang agent putuskan sendiri kapan
+dipakai, model bisa melewatinya — dan justru pada query bermasalah.
+Sebagai node, jalurnya dipaksa.
+
+### Pre-check (query_filter)
+
+Dua lapis: regex → LLM. Regex menangani pola eksplisit dengan biaya nol;
+LLM hanya dipanggil untuk yang lolos.
+
+Terbukti: "fresh graduate yang punya digital native mindset" ditolak
+sebagai age proxy — tidak mungkin ditangkap regex. Saran perumusan
+ulangnya tepat: "kandidat dengan pengalaman dan kemampuan dalam bidang
+digital dan teknologi terbaru".
+
+Biaya: $0.000000 (tertangkap regex) sampai $0.000057 (perlu LLM).
+
+Regex awal punya negative lookahead `(?!.*\bmanager\b)` yang terlalu
+luas — "kandidat laki-laki untuk posisi manager" lolos regex dan baru
+ditangkap LLM. Lookahead dihapus.
+
+### Post-check (citation_verifier)
+
+Tiga jenis kegagalan yang dicari: halusinasi sumber, kutipan tidak cocok,
+klaim tanpa citation.
+
+Verifikasi kutipan memecah pada "..." karena uji evaluator menemukan
+model menyambung dua bagian teks:
+  "Senior Internal Auditor 07/2002 to 06/2004 ... Supervised audit teams"
+Isinya benar tapi bukan substring persis.
+
+Ambang kecocokan 0.85, bukan 100%, karena loader menormalisasi whitespace
+sementara model merapikan spasi saat mengutip.
+
+Uji: 5 bukti asli lolos, evidence palsu (resume_id 99999999) ditolak.
+
+**Dasar regulasi:** EU AI Act mengklasifikasikan employment screening
+sebagai high-risk; NYC Local Law 144 mewajibkan bias audit tahunan.
+Sistem ini tidak mengklaim compliance — hanya menunjukkan kesadaran.
