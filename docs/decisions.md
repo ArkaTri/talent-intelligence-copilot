@@ -129,3 +129,44 @@ kandidat peringkat 2 versi vektor turun ke 5.
 
 **Dampak terukur:** 6 kandidat dari luar top-5 vektor masuk hasil akhir
 di 3 query uji. Tanpa reranker, kandidat itu tidak terlihat sama sekali.
+
+## Analytics — Text-to-SQL dibatalkan
+
+**Keputusan:** analytics agent menghitung dari ISI TEKS lewat Qdrant
+MatchText, bukan dari label kategori lewat SQL.
+
+**Bukti (notebooks/check_analytics.py):**
+
+Pertanyaan uji: "berapa kandidat dengan kemampuan cloud?"
+
+  [label]  kategori INFORMATION-TECHNOLOGY : 120 resume
+  [teks]   menyebut AWS atau Azure         :  29 resume
+  irisan                                   :   9 resume
+  cloud tapi BUKAN label IT                :  20 resume  (69% terlewat)
+  label IT tanpa cloud                     : 111 resume  (93% false positive)
+
+Distribusi chunk yang menyebut "AWS":
+  INFORMATION-TECHNOLOGY 17, CONSULTANT 8, ADVOCATE 5, AGRICULTURE 4,
+  DIGITAL-MEDIA 3, DESIGNER 2, ENGINEERING 2, CONSTRUCTION 2, BANKING 2
+
+Label kategori bukan proksi untuk kemampuan teknis. Text-to-SQL berbasis
+label akan menghasilkan angka yang salah dengan percaya diri — dan untuk
+sistem yang nilai jualnya evidence-grounded, itu kontradiksi.
+
+**Konsekuensi:** Text-to-SQL (Module 3 Session 16) tidak dipakai. Ini
+melepas satu kesempatan menunjukkan materi kelas, tapi memakai teknik
+pada data yang cacat adalah demonstrasi tanpa penilaian.
+
+**Payload index TEXT** ditambahkan untuk field `text` (3,9 detik).
+Berbeda dari KEYWORD: TEXT melakukan tokenisasi sehingga bisa mencari
+kata di dalam teks.
+
+**Kecepatan:** 0,13–0,33 detik per term di 22.866 chunk. Aman untuk UI.
+
+**Batasan:** MatchText mencocokkan kata, bukan makna. "Amazon Web
+Services" tanpa singkatan tidak tertangkap oleh query "AWS". Agent perlu
+mengirim beberapa varian istilah.
+
+**Batasan kedua:** angka hasil selalu kecil (AWS 47 chunk, Kubernetes 2)
+karena dataset didominasi profesi non-teknis. Itu benar, bukan kegagalan
+pencarian — perlu disampaikan agar tidak disalahartikan.
