@@ -265,6 +265,18 @@ class Supervisor:
                 search_query=state["query"],
             )
 
+            # Model kadang tetap menulis placeholder meski diminta ID nyata.
+            # Kalau rute profile tapi ID kosong, ambil citation terakhir dari
+            # history secara deterministik — mencari pola [angka#angka] adalah
+            # tugas regex, bukan tugas model.
+        if route.agent == "profile" and not route.target_resume_ids:
+            for m in reversed(state["history"]):
+                found = re.findall(r"\[(\d+)#\d+\]", m.get("content", ""))
+                if found:
+                    route.target_resume_ids = [found[0]]
+                    break
+
+
         return {"route": route, "usage": usage}
 
     def _node_retrieval(self, state: GraphState) -> dict:
