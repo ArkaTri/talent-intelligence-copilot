@@ -45,6 +45,7 @@ terakhir agar payload routing tidak membengkak.
 import json
 import os
 from typing import Annotated, Literal, TypedDict
+import re
 
 from dotenv import load_dotenv
 from langgraph.graph import END, StateGraph
@@ -214,9 +215,20 @@ class Supervisor:
         history_text = ""
         if state["history"]:
             recent = state["history"][-HISTORY_TURNS:]
-            history_text = "\n\nCHAT HISTORY:\n" + "\n".join(
-                f"{m['role']}: {m['content'][:200]}" for m in recent
-            )
+            parts = []
+            for m in recent:
+                content = m["content"]
+                # Citation biasanya muncul di tengah/akhir jawaban, jauh
+                # setelah karakter ke-200. Memotong di depan membuat router
+                # tidak pernah melihat ID kandidat — dan follow-up seperti
+                # "kandidat tersebut" jadi tidak bisa diselesaikan.
+                # Ambil awal DAN semua citation yang ada.
+                ids = re.findall(r"\[\d+#\d+\]", content)
+                snippet = content[:200]
+                if ids:
+                    snippet += "  [citations: " + " ".join(dict.fromkeys(ids)) + "]"
+                parts.append(f"{m['role']}: {snippet}")
+            history_text = "\n\nCHAT HISTORY:\n" + "\n".join(parts)
 
         resp = self._oa.chat.completions.create(
             model=MODEL_ROUTER,
