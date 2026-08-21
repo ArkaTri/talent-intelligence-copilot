@@ -151,11 +151,16 @@ def check_query(
         # memblokir seluruh sistem; regex sudah menangkap kasus jelas.
         return GuardrailVerdict(allowed=True), usage
 
+    allowed = bool(data.get("allowed", True))
+
+    # Kalau lolos, field penjelasan dikosongkan. LLM kadang mengisinya
+    # meski allowed=true, dan explanation itu ikut tampil sebagai jawaban
+    # di UI — menimpa jawaban agent yang sebenarnya.
     return GuardrailVerdict(
-        allowed=bool(data.get("allowed", True)),
-        triggered_rule=data.get("triggered_rule"),
-        explanation=data.get("explanation"),
-        suggested_rephrase=data.get("suggested_rephrase"),
+        allowed=allowed,
+        triggered_rule=data.get("triggered_rule") if not allowed else None,
+        explanation=data.get("explanation") if not allowed else None,
+        suggested_rephrase=data.get("suggested_rephrase") if not allowed else None,
     ), usage
 
 

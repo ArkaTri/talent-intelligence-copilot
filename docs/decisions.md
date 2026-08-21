@@ -337,3 +337,52 @@ dibedakan:
 **Pelajaran metodologis:** verifikasi berbasis preview terpotong
 menghasilkan kesimpulan yang salah. Periksa dengan `.find()` dan cetak
 posisi, bukan potongan awal.
+
+## Identifier kandidat — resume_id, bukan nama
+
+**Fakta:** dataset tidak memuat nama kandidat sama sekali. Livecareer.com
+menghapusnya sebelum publikasi. Terlihat di struktur HTML sumber:
+
+  <span class="field" id="...FNAM1"> </span>          <- first name kosong
+  <span class="field" id="...LNAM1"> FINANCE MANAGER</span>  <- diisi jabatan
+
+Pola sama di seluruh korpus: "Company Name", "City, State" juga placeholder.
+
+**Konsekuensi:** resume_id adalah satu-satunya identifier yang mungkin.
+Ini bukan keputusan desain untuk mengurangi bias — meski efeknya sejalan
+dengan praktik blind screening yang direkomendasikan.
+
+**Untuk README:** sebutkan sebagai karakteristik dataset, bukan sebagai
+fitur sistem. Mengklaim penyembunyian yang disengaja padahal datanya
+memang tidak ada akan terbantah kalau ada yang memeriksa sumbernya.
+
+## Keterbatasan struktur teks — tidak diperbaiki, didokumentasikan
+
+**Masalah:** kolom `Resume_str` adalah HTML yang diratakan tanpa
+mempertahankan struktur. Relasi antar-elemen hilang:
+
+  "Company Name  March 2003  to  Current  Finance Manager  City , State"
+
+Di HTML sumber, ini tabel: perusahaan di kiri, tanggal di kanan, jabatan
+di baris berikutnya. Relasi dibawa oleh tag dan CSS, bukan urutan kata.
+Setelah flattening, tidak ada penanda bahwa "March 2003 to Current" adalah
+periode kerja di "Company Name", atau bahwa "Finance Manager" jabatannya.
+
+**Konsekuensi ke kemampuan sistem:**
+- Pertanyaan "berapa lama di posisi terakhir?" sulit dijawab akurat —
+  model harus menebak pasangan tanggal-jabatan dari urutan kata
+- Kutipan model kadang menyambung bagian terpisah dengan "..." karena
+  berusaha merekonstruksi struktur yang hilang
+
+**Kenapa tidak diperbaiki:** kolom `Resume_html` menyimpan struktur
+lengkap dan bisa di-parse ulang. Estimasi 3-4 jam (parser + penyesuaian
+chunker + re-index + uji ulang). Dengan sisa waktu di bawah 3 hari,
+risikonya melebihi manfaatnya — chunker harus dirombak karena deteksi
+header berbasis spasi tidak berlaku pada teks berstruktur.
+
+Dicatat sebagai pengembangan lanjutan di README.
+
+**Yang diperbaiki:** pemotongan chunk di tengah kata. Jendela pencarian
+batas spasi diperlebar 100 → 200 karakter, dengan fallback mencari spasi
+pertama setelah batas. Sebelumnya menghasilkan chunk seperti
+"cquisitions, and then prepare..." dari kata "acquisitions".

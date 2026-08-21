@@ -220,7 +220,7 @@ class RouteDecision(BaseModel):
     MENYEBUT kategori — memaksakannya pada query umum justru mempersempit
     tanpa alasan.
     """
-    agent: Literal["retrieval", "evaluator", "analytics", "refuse"]
+    agent: Literal["retrieval", "evaluator", "analytics", "profile", "refuse"]
     reasoning: str = Field(description="Alasan singkat pemilihan, maksimal 15 kata")
     category_filter: list[str] = Field(
         default_factory=list,
@@ -232,6 +232,11 @@ class RouteDecision(BaseModel):
                     "embedding sudah merutekan dengan benar tanpa bantuan.",
     )
     search_query: str = Field(description="Query yang dioptimalkan untuk pencarian")
+    target_resume_ids: list[str] = Field(
+        default_factory=list,
+        description="Resume ID spesifik yang diminta, mis. untuk follow-up "
+                    "'kandidat tadi' atau 'detail kandidat 11183737'",
+    )
 
 
 # ── GUARDRAIL ────────────────────────────────────────────────────────
