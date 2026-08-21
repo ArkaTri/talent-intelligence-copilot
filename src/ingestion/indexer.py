@@ -48,8 +48,14 @@ BATCH_SIZE = 100        # batas aman request OpenAI
 UPSERT_BATCH = 256      # batas aman payload Qdrant
 
 # Field yang akan difilter oleh agent. WAJIB di-index — lihat docstring.
-INDEXED_FIELDS = ["category", "section_type", "resume_id", "chunking_method"]
+# KEYWORD: pencocokan nilai persis. Dipakai untuk filter kategori/section.
+INDEXED_KEYWORD_FIELDS = ["category", "section_type", "resume_id", "chunking_method"]
 
+# TEXT: tokenisasi, memungkinkan pencarian kata di dalam teks.
+# Dipakai analytics_agent lewat MatchText. Harus dibuat di sini —
+# index yang dibuat di luar indexer.py akan hilang setiap --recreate,
+# dan kegagalannya baru muncul saat analytics dipanggil.
+INDEXED_TEXT_FIELDS = ["text"]
 
 def _cache_key(text: str, model: str) -> str:
     """Hash teks + model. Model masuk kunci agar cache tidak tertukar
@@ -151,14 +157,21 @@ def setup_collection(client: QdrantClient, dim: int, recreate: bool = False):
         print(f"  collection '{COLLECTION}' dibuat (dim={dim})")
 
         # Payload index — tanpa ini filtering gagal saat query
-        for field in INDEXED_FIELDS:
+                # Payload index — tanpa ini filtering gagal saat query
+        for field in INDEXED_KEYWORD_FIELDS:
             client.create_payload_index(
                 collection_name=COLLECTION,
                 field_name=field,
                 field_schema=PayloadSchemaType.KEYWORD,
             )
-        print(f"  payload index: {', '.join(INDEXED_FIELDS)}")
-
+        for field in INDEXED_TEXT_FIELDS:
+            client.create_payload_index(
+                collection_name=COLLECTION,
+                field_name=field,
+                field_schema=PayloadSchemaType.TEXT,
+            )
+        print(f"  payload index keyword: {', '.join(INDEXED_KEYWORD_FIELDS)}")
+        print(f"  payload index text   : {', '.join(INDEXED_TEXT_FIELDS)}")
 
 def index_chunks(chunks: list[dict], recreate: bool = False,
                  skip_upsert: bool = False) -> dict:

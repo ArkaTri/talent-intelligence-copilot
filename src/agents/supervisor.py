@@ -90,6 +90,11 @@ HANDLERS:
 "analytics" — count or aggregate
   "berapa banyak kandidat yang menyebut AWS?", "berapa yang punya PMP?"
 
+"profile" — show everything about ONE specific candidate
+  "info lengkap tentang kandidat tersebut", "detail kandidat 11183737",
+  "apa pendidikan kandidat yang tadi?"
+  Set target_resume_ids from citation IDs in the chat history.
+  
 "refuse" — outside the system's scope
   Questions not about candidate screening at all.
 
@@ -99,7 +104,8 @@ Return JSON:
   "reasoning": "<max 15 words>",
   "category_filter": ["CATEGORY"],
   "section_filter": [],
-  "search_query": "<optimized English search phrase>"
+  "search_query": "<optimized English search phrase>",
+  "target_resume_ids": ["<id>"]
 }
 
 CATEGORY FILTER — only when the user NAMES an industry or role category.
@@ -226,6 +232,7 @@ class Supervisor:
                 category_filter=_as_list(d.get("category_filter")),
                 section_filter=_as_list(d.get("section_filter")),
                 search_query=str(d.get("search_query", state["query"])),
+                target_resume_ids=_as_list(d.get("target_resume_ids")),
             )
         except Exception:
             # Fallback ke retrieval: jalur paling umum dan paling aman.
@@ -326,7 +333,42 @@ class Supervisor:
             "analytics": result,
             "usage": state["usage"] + usage,
         }
+    
+    def _node_profile(self, state: GraphState) -> dict:
+        """Tampilkan profil lengkap satu kandidat.
 
+        Memakai get_resume_chunks (scroll, bukan vector search) — nol biaya
+        API karena tidak perlu embedding query. Seluruh chunk resume diambil,
+        bukan hanya yang cocok dengan pencarian.
+        """
+        rid = (state["route"].target_resume_ids or [None])[0]
+        if not rid:
+            return {"answer": "Sebutkan ID kandidat yang ingin dilihat, "
+                              "misalnya: detail kandidat 11183737."}
+
+        chunks = self.vs.get_resume_chunks(rid)
+        if not chunks:
+            return {"answer": f"Kandidat {rid} tidak ditemukan di korpus."}
+
+        lines = [f"**Profil lengkap kandidat [{rid}]** "
+                 f"· kategori {chunks[0].category} · {len(chunks)} bagian\n"]
+        for c in chunks:
+            lines.append(f"**{c.citation()}** · {c.section_type}")
+            lines.append(c.text.strip())
+            lines.append("")
+
+        evidence = [
+            Evidence(resume_id=c.resume_id, chunk_index=c.chunk_index,
+                     quote=c.text.strip()[:200], section=c.section_type)
+            for c in chunks
+        ]
+
+        return {
+            "answer": "\n".join(lines),
+            "evidence": evidence,
+            "retrieved": chunks,
+        }
+    
     def _node_refuse(self, state: GraphState) -> dict:
         return {
             "answer": (
@@ -370,6 +412,7 @@ class Supervisor:
         g.add_node("retrieval", self._node_retrieval)
         g.add_node("evaluator", self._node_evaluator)
         g.add_node("analytics", self._node_analytics)
+        g.add_node("profile", self._node_profile)
         g.add_node("refuse", self._node_refuse)
         g.add_node("guardrail_post", self._node_guardrail_post)
 
@@ -384,10 +427,11 @@ class Supervisor:
             "retrieval": "retrieval",
             "evaluator": "evaluator",
             "analytics": "analytics",
+            "profile": "profile",
             "refuse": "refuse",
         })
 
-        for node in ("retrieval", "evaluator", "analytics", "refuse"):
+        for node in ("retrieval", "evaluator", "analytics", "profile", "refuse"):
             g.add_edge(node, "guardrail_post")
 
         g.add_edge("guardrail_post", END)
@@ -441,6 +485,7 @@ if __name__ == "__main__":
         "pengalaman audit, SOX compliance, dan sertifikasi CPA",
         "Cari kandidat laki-laki di bidang banking",
         "Apa resep rendang yang enak?",
+         "Berikan detail lengkap kandidat 27914096",
     ]
 
     grand_total = 0.0

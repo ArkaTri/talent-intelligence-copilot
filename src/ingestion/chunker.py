@@ -95,7 +95,10 @@ def find_headers(text: str) -> list[tuple[int, int, str]]:
 def split_long_text(text: str, size: int, overlap: int) -> list[str]:
     """Pecah teks panjang jadi potongan berukuran `size` dengan overlap.
 
-    Pemotongan diusahakan di batas spasi terdekat agar kata tidak terbelah.
+    Pemotongan diusahakan di batas spasi. Jendela pencarian diperlebar
+    dari 100 ke 200 karakter karena teks ini punya spasi berulang —
+    dengan jendela sempit, rfind kadang tidak menemukan batas dan
+    memotong paksa di tengah kata ("cquisitions" dari "acquisitions").
     """
     if len(text) <= size:
         return [text]
@@ -106,10 +109,14 @@ def split_long_text(text: str, size: int, overlap: int) -> list[str]:
         end = start + size
 
         if end < len(text):
-            # Mundur cari spasi terdekat, maksimal 100 karakter ke belakang
-            space = text.rfind(" ", start + size - 100, end)
-            if space > start:
-                end = space
+            space = text.rfind(" ", start + size - 200, end)
+            # Fallback: kalau tetap tidak ketemu, cari spasi PERTAMA
+            # setelah batas. Lebih baik chunk sedikit lebih panjang
+            # daripada kata terpotong.
+            if space <= start:
+                nxt = text.find(" ", end)
+                space = nxt if nxt != -1 and nxt - end < 100 else end
+            end = space
 
         parts.append(text[start:end].strip())
 
