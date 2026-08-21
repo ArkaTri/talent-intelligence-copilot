@@ -93,19 +93,23 @@ HANDLERS:
 "profile" — show everything about ONE specific candidate
   "info lengkap tentang kandidat tersebut", "detail kandidat 11183737",
   "apa pendidikan kandidat yang tadi?"
-  Set target_resume_ids from citation IDs in the chat history.
-  
+  Fill target_resume_ids with ACTUAL numeric IDs. If the user names an ID,
+  use it. If they say "kandidat tersebut" or "yang tadi", scan the CHAT
+  HISTORY for citations like [12345678#3] and extract 12345678.
+  Never output a placeholder — if no ID can be found, return an empty list
+  and route to "retrieval" instead.
+
 "refuse" — outside the system's scope
   Questions not about candidate screening at all.
 
 Return JSON:
 {
-  "agent": "retrieval" | "evaluator" | "analytics" | "refuse",
+  "agent": "retrieval" | "evaluator" | "analytics" | "profile" | "refuse",
   "reasoning": "<max 15 words>",
   "category_filter": ["CATEGORY"],
   "section_filter": [],
   "search_query": "<optimized English search phrase>",
-  "target_resume_ids": ["<id>"]
+   "target_resume_ids": []
 }
 
 CATEGORY FILTER — only when the user NAMES an industry or role category.
@@ -158,18 +162,24 @@ class GraphState(TypedDict):
 def _as_list(value) -> list[str]:
     """Normalisasi field yang seharusnya list.
 
-    Model kadang mengembalikan string tunggal ("FINANCE") alih-alih list
-    (["FINANCE"]). Tanpa normalisasi, list comprehension mengiterasi
-    string per karakter — filter jadi ['F','I','N','A','N','C','E'] dan
-    retrieval mengembalikan nol hasil TANPA error. Kegagalan senyap.
+    Model kadang mengembalikan string tunggal ("FINANCE") alih-alih list,
+    dan list comprehension akan mengiterasinya per karakter — filter jadi
+    [F,I,N,A,N,C,E], nol hasil TANPA error.
+
+    Juga membuang placeholder ("<id>", "..."), karena model sesekali
+    menyalin contoh format dari prompt alih-alih mengisinya.
     """
     if value is None:
         return []
     if isinstance(value, str):
-        return [value] if value.strip() else []
-    if isinstance(value, list):
-        return [v for v in value if isinstance(v, str) and v.strip()]
-    return []
+        value = [value]
+    if not isinstance(value, list):
+        return []
+    return [
+        v for v in value
+        if isinstance(v, str) and v.strip()
+        and not v.startswith("<") and v != "..."
+    ]
 
 class Supervisor:
     def __init__(self, vs: VectorStore | None = None,

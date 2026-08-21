@@ -213,7 +213,7 @@ def render_response(r) -> None:
                     for x in rows
                 ],
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
             )
         st.markdown(
             f"**Total:** {r.usage.total_input:,} in · "
