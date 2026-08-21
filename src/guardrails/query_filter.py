@@ -152,13 +152,18 @@ def check_query(
         return GuardrailVerdict(allowed=True), usage
 
     allowed = bool(data.get("allowed", True))
+    rule = data.get("triggered_rule")
 
-    # Kalau lolos, field penjelasan dikosongkan. LLM kadang mengisinya
-    # meski allowed=true, dan explanation itu ikut tampil sebagai jawaban
-    # di UI — menimpa jawaban agent yang sebenarnya.
+    # LLM kadang mengembalikan allowed=false dengan triggered_rule "none"
+    # atau null — kontradiktif. Kalau tidak ada aturan yang benar-benar
+    # terpicu, perlakukan sebagai lolos. Guardrail yang menolak tanpa
+    # alasan lebih merugikan daripada meloloskan query wajar.
+    if not allowed and (not rule or str(rule).strip().lower() in {"none", "null", "-", ""}):
+        allowed = True
+        rule = None
     return GuardrailVerdict(
         allowed=allowed,
-        triggered_rule=data.get("triggered_rule") if not allowed else None,
+        triggered_rule=rule if not allowed else None,
         explanation=data.get("explanation") if not allowed else None,
         suggested_rephrase=data.get("suggested_rephrase") if not allowed else None,
     ), usage
